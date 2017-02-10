@@ -1,0 +1,18 @@
+[package]
+name = "iptables"
+version = "0.1.0"
+authors = ["Navid Fathollahzade <yaa110@gmail.com>"]
+
+description = "Rust bindings for iptables"
+homepage = "https://github.com/yaa110/rust-iptables"
+documentation = "https://github.com/yaa110/rust-iptables"
+repository = "https://github.com/yaa110/rust-iptables"
+readme = "README.md"
+keywords = ["iptables", "netfilter", "bindings"]
+categories = ["api-bindings"]
+license = "MIT"
+
+[lib]
+name = "iptables"
+
+[dependencies]
