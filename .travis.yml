@@ -1,0 +1,18 @@
+language: rust
+sudo: true
+rust:
+  - 1.13.0
+  - stable
+  - beta
+  - nightly
+os:
+  - linux
+matrix:
+  allow_failures:
+    - rust: nightly
+env:
+  global:
+    - LD_LIBRARY_PATH: /usr/local/lib
+script:
+  - cargo build -v
+  - sudo env "PATH=$PATH" cargo test -j 1 -- --nocapture

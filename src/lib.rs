@@ -1,5 +1,23 @@
 // In the name of Allah
 
+//! Provides bindings for [iptables](https://www.netfilter.org/projects/iptables/index.html) application in Linux.
+//! This crate uses iptables binary to manipulate chains and tables.
+//! This source code is licensed under MIT license that can be found in the LICENSE file.
+//!
+//! # Example
+//! ```
+//! extern crate iptables;
+//!
+//! fn main() {
+//!     let ipt = iptables::new(false).unwrap();
+//!     assert_eq!(ipt.new_chain("nat", "NEWCHAINNAME").unwrap(), true);
+//!     assert_eq!(ipt.append("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
+//!     assert_eq!(ipt.exists("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
+//!     assert_eq!(ipt.delete("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
+//!     assert_eq!(ipt.delete_chain("nat", "NEWCHAINNAME").unwrap(), true);
+//! }
+//! ```
+
 extern crate regex;
 extern crate nix;
 

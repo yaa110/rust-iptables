@@ -34,8 +34,6 @@ fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
 }
 
 fn filter(ipt: iptables::IPTables, name: &str) {
-    let chains_start = ipt.list_chains("filter").unwrap();
-    let table_start = ipt.list_table("filter").unwrap();
     assert_eq!(ipt.new_chain("filter", name).unwrap(), true);
     assert_eq!(ipt.insert("filter", name, "-j ACCEPT", 1).unwrap(), true);
     assert_eq!(ipt.replace("filter", name, "-j DROP", 1).unwrap(), true);
@@ -44,6 +42,4 @@ fn filter(ipt: iptables::IPTables, name: &str) {
     assert_eq!(ipt.delete("filter", name, "-j DROP").unwrap(), true);
     assert_eq!(ipt.list("filter", name).unwrap().len(), 1);
     assert_eq!(ipt.delete_chain("filter", name).unwrap(), true);
-    assert_eq!(ipt.list_table("filter").unwrap(), table_start);
-    assert_eq!(ipt.list_chains("filter").unwrap(), chains_start);
 }
