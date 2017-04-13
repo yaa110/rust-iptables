@@ -16,3 +16,4 @@ env:
 script:
   - cargo build -v
   - sudo env "PATH=$PATH" cargo test -j 1 -- --nocapture
+  - sudo env "PATH=$PATH" cargo test -j 1 -- --nocapture --ignored

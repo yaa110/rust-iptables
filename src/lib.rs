@@ -32,6 +32,25 @@ use nix::fcntl::{flock, FlockArg};
 use std::vec::Vec;
 use std::ffi::OsStr;
 
+// List of built-in chains taken from: man 8 iptables
+const BUILTIN_CHAINS_FILTER: &'static [&'static str] = &["INPUT", "FORWARD", "OUTPUT"];
+const BUILTIN_CHAINS_MANGLE: &'static [&'static str] =
+    &["PREROUTING", "OUTPUT", "INPUT", "FORWARD", "POSTROUTING"];
+const BUILTIN_CHAINS_NAT: &'static [&'static str] = &["PREROUTING", "POSTROUTING", "OUTPUT"];
+const BUILTIN_CHAINS_RAW: &'static [&'static str] = &["PREROUTING", "OUTPUT"];
+const BUILTIN_CHAINS_SECURITY: &'static [&'static str] = &["INPUT", "OUTPUT", "FORWARD"];
+
+fn get_builtin_chains(table: &str) -> IPTResult<&[&str]> {
+    match table {
+        "filter" => Ok(BUILTIN_CHAINS_FILTER),
+        "mangle" => Ok(BUILTIN_CHAINS_MANGLE),
+        "nat" => Ok(BUILTIN_CHAINS_NAT),
+        "raw" => Ok(BUILTIN_CHAINS_RAW),
+        "security" => Ok(BUILTIN_CHAINS_SECURITY),
+        _ => Err(IPTError::Other("given table is not supported by iptables")),
+    }
+}
+
 /// Contains the iptables command and shows if it supports -w and -C options.
 /// Use `new` method to create a new instance of this struct.
 pub struct IPTables {
@@ -76,6 +95,43 @@ pub fn new(is_ipv6: bool) -> IPTResult<IPTables> {
 }
 
 impl IPTables {
+    /// Get the default policy for a table/chain.
+    pub fn get_policy(&self, table: &str, chain: &str) -> IPTResult<String> {
+        let builtin_chains = get_builtin_chains(table)?;
+        if !builtin_chains.iter().as_slice().contains(&chain) {
+            return Err(IPTError::Other("given chain is not a default chain in the given table, can't get policy"));
+        }
+
+        let output = String::from_utf8_lossy(&self.run(&["-t", table, "-L", chain])?.stdout)
+            .into_owned();
+        for item in output.trim().split("\n") {
+            let fields = item.split(" ").collect::<Vec<&str>>();
+            if fields.len() > 1 && fields[0] == "Chain" && fields[1] == chain {
+                return Ok(fields[3].replace(")", ""));
+            }
+        }
+        Err(IPTError::Other("could not find the default policy for table and chain"))
+    }
+
+    /// Set the default policy for a table/chain.
+    pub fn set_policy(&self, table: &str, chain: &str, policy: &str) -> IPTResult<bool> {
+        let builtin_chains = get_builtin_chains(table)?;
+        if !builtin_chains.iter().as_slice().contains(&chain) {
+            return Err(IPTError::Other("given chain is not a default chain in the given table, can't set policy"));
+        }
+
+        match self.run(&["-t", table, "-P", chain, policy]) {
+            Ok(output) => Ok(output.status.success()),
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Executes a given `command` on the chain.
+    /// Returns the command output if successful.
+    pub fn execute(&self, table: &str, command: &str) -> IPTResult<Output> {
+        self.run(&[&["-t", table], command.split(" ").collect::<Vec<&str>>().as_slice()].concat())
+    }
+
     /// Checks for the existence of the `rule` in the table/chain.
     /// Returns true if the rule exists.
     #[cfg(target_os = "linux")]
