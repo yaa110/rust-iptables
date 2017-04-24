@@ -146,6 +146,16 @@ impl IPTables {
         }
     }
 
+    /// Checks for the existence of the `chain` in the table.
+    /// Returns true if the chain exists.
+    #[cfg(target_os = "linux")]
+    pub fn chain_exists(&self, table: &str, chain: &str) -> IPTResult<bool> {
+        match self.run(&["-t", table, "-L", chain]) {
+            Ok(output) => Ok(output.status.success()),
+            Err(err) => Err(err),
+        }
+    }
+
     /// Inserts `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is inserted.
     pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {

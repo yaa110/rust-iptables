@@ -35,7 +35,9 @@ fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
     assert!(ipt.execute("nat", &format!("-A {} -j ACCEPT", new_name)).is_ok());
     assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.flush_chain("nat", new_name).unwrap(), true);
+    assert_eq!(ipt.chain_exists("nat", new_name).unwrap(), true);
     assert_eq!(ipt.delete_chain("nat", new_name).unwrap(), true);
+    assert_eq!(ipt.chain_exists("nat", new_name).unwrap(), false);
 }
 
 fn filter(ipt: iptables::IPTables, name: &str) {
@@ -49,7 +51,9 @@ fn filter(ipt: iptables::IPTables, name: &str) {
     assert!(ipt.execute("filter", &format!("-A {} -j ACCEPT", name)).is_ok());
     assert_eq!(ipt.exists("filter", name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.flush_chain("filter", name).unwrap(), true);
+    assert_eq!(ipt.chain_exists("filter", name).unwrap(), true);
     assert_eq!(ipt.delete_chain("filter", name).unwrap(), true);
+    assert_eq!(ipt.chain_exists("filter", name).unwrap(), false);
 }
 
 #[test]
