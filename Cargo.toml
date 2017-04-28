@@ -1,7 +1,7 @@
 [package]
 name = "iptables"
 version = "0.2.0"
-authors = ["Navid Fathollahzade <yaa110@gmail.com>"]
+authors = ["Navid Fathollahzade <yaa110@gmail.com>", "Pit Kleyersburg <pitkley@googlemail.com>"]
 
 description = "Rust bindings for iptables"
 homepage = "https://github.com/yaa110/rust-iptables"
