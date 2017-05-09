@@ -18,13 +18,15 @@
 //! }
 //! ```
 
+#[macro_use]
+extern crate lazy_static;
 extern crate regex;
 extern crate nix;
 
 pub mod error;
 
 use std::process::{Command, Output};
-use regex::Regex;
+use regex::{Match, Regex};
 use error::{IPTResult, IPTError};
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
@@ -39,6 +41,28 @@ const BUILTIN_CHAINS_MANGLE: &'static [&'static str] =
 const BUILTIN_CHAINS_NAT: &'static [&'static str] = &["PREROUTING", "POSTROUTING", "OUTPUT"];
 const BUILTIN_CHAINS_RAW: &'static [&'static str] = &["PREROUTING", "OUTPUT"];
 const BUILTIN_CHAINS_SECURITY: &'static [&'static str] = &["INPUT", "OUTPUT", "FORWARD"];
+
+lazy_static! {
+    static ref RE_SPLIT: Regex = Regex::new(r#"["'].+?["']|[^ ]+"#).unwrap();
+}
+
+trait SplitQuoted {
+    fn split_quoted(&self) -> Vec<&str>;
+}
+
+impl SplitQuoted for str {
+    fn split_quoted(&self) -> Vec<&str> {
+        RE_SPLIT
+            // Iterate over matched segments
+            .find_iter(self)
+            // Get match as str
+            .map(|m| Match::as_str(&m))
+            // Remove any surrounding quotes (they will be reinserted by `Command`)
+            .map(|s| s.trim_matches(|c| c == '"' || c == '\''))
+            // Collect
+            .collect::<Vec<_>>()
+    }
+}
 
 fn get_builtin_chains(table: &str) -> IPTResult<&[&str]> {
     match table {
