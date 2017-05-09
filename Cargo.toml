@@ -1,6 +1,6 @@
 [package]
 name = "iptables"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Navid Fathollahzade <yaa110@gmail.com>", "Pit Kleyersburg <pitkley@googlemail.com>"]
 
 description = "Rust bindings for iptables"
