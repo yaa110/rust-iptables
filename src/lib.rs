@@ -18,13 +18,15 @@
 //! }
 //! ```
 
+#[macro_use]
+extern crate lazy_static;
 extern crate regex;
 extern crate nix;
 
 pub mod error;
 
 use std::process::{Command, Output};
-use regex::Regex;
+use regex::{Match, Regex};
 use error::{IPTResult, IPTError};
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
@@ -39,6 +41,28 @@ const BUILTIN_CHAINS_MANGLE: &'static [&'static str] =
 const BUILTIN_CHAINS_NAT: &'static [&'static str] = &["PREROUTING", "POSTROUTING", "OUTPUT"];
 const BUILTIN_CHAINS_RAW: &'static [&'static str] = &["PREROUTING", "OUTPUT"];
 const BUILTIN_CHAINS_SECURITY: &'static [&'static str] = &["INPUT", "OUTPUT", "FORWARD"];
+
+lazy_static! {
+    static ref RE_SPLIT: Regex = Regex::new(r#"["'].+?["']|[^ ]+"#).unwrap();
+}
+
+trait SplitQuoted {
+    fn split_quoted(&self) -> Vec<&str>;
+}
+
+impl SplitQuoted for str {
+    fn split_quoted(&self) -> Vec<&str> {
+        RE_SPLIT
+            // Iterate over matched segments
+            .find_iter(self)
+            // Get match as str
+            .map(|m| Match::as_str(&m))
+            // Remove any surrounding quotes (they will be reinserted by `Command`)
+            .map(|s| s.trim_matches(|c| c == '"' || c == '\''))
+            // Collect
+            .collect::<Vec<_>>()
+    }
+}
 
 fn get_builtin_chains(table: &str) -> IPTResult<&[&str]> {
     match table {
@@ -129,7 +153,7 @@ impl IPTables {
     /// Executes a given `command` on the chain.
     /// Returns the command output if successful.
     pub fn execute(&self, table: &str, command: &str) -> IPTResult<Output> {
-        self.run(&[&["-t", table], command.split(" ").collect::<Vec<&str>>().as_slice()].concat())
+        self.run(&[&["-t", table], command.split_quoted().as_slice()].concat())
     }
 
     /// Checks for the existence of the `rule` in the table/chain.
@@ -140,7 +164,7 @@ impl IPTables {
             return self.exists_old_version(table, chain, rule);
         }
 
-        match self.run(&[&["-t", table, "-C", chain], rule.split(" ").collect::<Vec<&str>>().as_slice()].concat()) {
+        match self.run(&[&["-t", table, "-C", chain], rule.split_quoted().as_slice()].concat()) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
@@ -159,7 +183,7 @@ impl IPTables {
     /// Inserts `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is inserted.
     pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-I", chain, &position.to_string()], rule.split(" ").collect::<Vec<&str>>().as_slice()].concat()) {
+        match self.run(&[&["-t", table, "-I", chain, &position.to_string()], rule.split_quoted().as_slice()].concat()) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
@@ -178,7 +202,7 @@ impl IPTables {
     /// Replaces `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is replaced.
     pub fn replace(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-R", chain, &position.to_string()], rule.split(" ").collect::<Vec<&str>>().as_slice()].concat()) {
+        match self.run(&[&["-t", table, "-R", chain, &position.to_string()], rule.split_quoted().as_slice()].concat()) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
@@ -187,7 +211,7 @@ impl IPTables {
     /// Appends `rule` to the table/chain.
     /// Returns `true` if the rule is appended.
     pub fn append(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-A", chain], rule.split(" ").collect::<Vec<&str>>().as_slice()].concat()) {
+        match self.run(&[&["-t", table, "-A", chain], rule.split_quoted().as_slice()].concat()) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
@@ -216,7 +240,7 @@ impl IPTables {
     /// Deletes `rule` from the table/chain.
     /// Returns `true` if the rule is deleted.
     pub fn delete(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-D", chain], rule.split(" ").collect::<Vec<&str>>().as_slice()].concat()) {
+        match self.run(&[&["-t", table, "-D", chain], rule.split_quoted().as_slice()].concat()) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
