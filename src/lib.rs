@@ -156,7 +156,7 @@ impl IPTables {
     }
 
     /// Set the default policy for a table/chain.
-    pub fn set_policy(&self, table: &str, chain: &str, policy: &str) -> IPTResult<bool> {
+    pub fn set_policy(&self, table: &str, chain: &str, policy: &str) -> IPTResult<()> {
         let builtin_chains = get_builtin_chains(table)?;
         if !builtin_chains.iter().as_slice().contains(&chain) {
             return Err(IPTError::Other(
@@ -165,7 +165,7 @@ impl IPTables {
         }
 
         match self.run(&["-t", table, "-P", chain, policy]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
@@ -185,7 +185,9 @@ impl IPTables {
         }
 
         match self.run(&[&["-t", table, "-C", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(true),
+            Err(IPTError::BadExitStatus(1)) => Ok(false),
+            Err(IPTError::BadExitStatus(2)) => Ok(false),
             Err(err) => Err(err),
         }
     }
@@ -195,14 +197,15 @@ impl IPTables {
     #[cfg(target_os = "linux")]
     pub fn chain_exists(&self, table: &str, chain: &str) -> IPTResult<bool> {
         match self.run(&["-t", table, "-L", chain]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(true),
+            Err(IPTError::BadExitStatus(1)) => Ok(false),
             Err(err) => Err(err),
         }
     }
 
     /// Inserts `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is inserted.
-    pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
+    pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<()> {
         match self.run(
             &[
                 &["-t", table, "-I", chain, &position.to_string()],
@@ -210,7 +213,7 @@ impl IPTables {
             ]
             .concat(),
         ) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
@@ -223,7 +226,7 @@ impl IPTables {
         chain: &str,
         rule: &str,
         position: i32,
-    ) -> IPTResult<bool> {
+    ) -> IPTResult<()> {
         if self.exists(table, chain, rule)? {
             return Err(IPTError::Other("the rule exists in the table/chain"));
         }
@@ -233,7 +236,7 @@ impl IPTables {
 
     /// Replaces `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is replaced.
-    pub fn replace(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
+    pub fn replace(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<()> {
         match self.run(
             &[
                 &["-t", table, "-R", chain, &position.to_string()],
@@ -241,23 +244,23 @@ impl IPTables {
             ]
             .concat(),
         ) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
 
     /// Appends `rule` to the table/chain.
     /// Returns `true` if the rule is appended.
-    pub fn append(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn append(&self, table: &str, chain: &str, rule: &str) -> IPTResult<()> {
         match self.run(&[&["-t", table, "-A", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
 
     /// Appends `rule` to the table/chain if it does not exist.
     /// Returns `true` if the rule is appended.
-    pub fn append_unique(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn append_unique(&self, table: &str, chain: &str, rule: &str) -> IPTResult<()> {
         if self.exists(table, chain, rule)? {
             return Err(IPTError::Other("the rule exists in the table/chain"));
         }
@@ -267,7 +270,7 @@ impl IPTables {
 
     /// Appends or replaces `rule` to the table/chain if it does not exist.
     /// Returns `true` if the rule is appended or replaced.
-    pub fn append_replace(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn append_replace(&self, table: &str, chain: &str, rule: &str) -> IPTResult<()> {
         if self.exists(table, chain, rule)? {
             self.delete(table, chain, rule)?;
         }
@@ -277,9 +280,9 @@ impl IPTables {
 
     /// Deletes `rule` from the table/chain.
     /// Returns `true` if the rule is deleted.
-    pub fn delete(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn delete(&self, table: &str, chain: &str, rule: &str) -> IPTResult<()> {
         match self.run(&[&["-t", table, "-D", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
@@ -318,45 +321,45 @@ impl IPTables {
 
     /// Creates a new user-defined chain.
     /// Returns `true` if the chain is created.
-    pub fn new_chain(&self, table: &str, chain: &str) -> IPTResult<bool> {
+    pub fn new_chain(&self, table: &str, chain: &str) -> IPTResult<()> {
         match self.run(&["-t", table, "-N", chain]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
 
     /// Flushes (deletes all rules) a chain.
     /// Returns `true` if the chain is flushed.
-    pub fn flush_chain(&self, table: &str, chain: &str) -> IPTResult<bool> {
+    pub fn flush_chain(&self, table: &str, chain: &str) -> IPTResult<()> {
         match self.run(&["-t", table, "-F", chain]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
 
     /// Renames a chain in the table.
     /// Returns `true` if the chain is renamed.
-    pub fn rename_chain(&self, table: &str, old_chain: &str, new_chain: &str) -> IPTResult<bool> {
+    pub fn rename_chain(&self, table: &str, old_chain: &str, new_chain: &str) -> IPTResult<()> {
         match self.run(&["-t", table, "-E", old_chain, new_chain]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
 
     /// Deletes a user-defined chain in the table.
     /// Returns `true` if the chain is deleted.
-    pub fn delete_chain(&self, table: &str, chain: &str) -> IPTResult<bool> {
+    pub fn delete_chain(&self, table: &str, chain: &str) -> IPTResult<()> {
         match self.run(&["-t", table, "-X", chain]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
 
     /// Flushes all chains in a table.
     /// Returns `true` if the chains are flushed.
-    pub fn flush_table(&self, table: &str) -> IPTResult<bool> {
+    pub fn flush_table(&self, table: &str) -> IPTResult<()> {
         match self.run(&["-t", table, "-F"]) {
-            Ok(output) => Ok(output.status.success()),
+            Ok(_) => Ok(()),
             Err(err) => Err(err),
         }
     }
@@ -417,6 +420,10 @@ impl IPTables {
             };
         }
 
-        Ok(output)
+        match output.status.code() {
+            None => Ok(output),
+            Some(0) => Ok(output),
+            Some(i) => Err(IPTError::BadExitStatus(i)),
+        }
     }
 }

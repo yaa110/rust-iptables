@@ -10,6 +10,7 @@ pub enum IPTError {
     Regex(regex::Error),
     Nix(nix::Error),
     Parse(num::ParseIntError),
+    BadExitStatus(i32),
     Other(&'static str),
 }
 
@@ -23,6 +24,7 @@ impl fmt::Display for IPTError {
             IPTError::Regex(ref err) => write!(f, "{}", err),
             IPTError::Nix(ref err) => write!(f, "{}", err),
             IPTError::Parse(ref err) => write!(f, "{}", err),
+            IPTError::BadExitStatus(i) => write!(f, "{}", i),
             IPTError::Other(ref message) => write!(f, "{}", message),
         }
     }
@@ -35,6 +37,7 @@ impl error::Error for IPTError {
             IPTError::Regex(ref err) => err.description(),
             IPTError::Nix(ref err) => err.description(),
             IPTError::Parse(ref err) => err.description(),
+            IPTError::BadExitStatus(_) => "iptables exited with a non-zero status.",
             IPTError::Other(ref message) => message,
         }
     }
