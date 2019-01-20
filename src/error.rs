@@ -1,7 +1,7 @@
-extern crate regex;
 extern crate nix;
+extern crate regex;
 
-use std::{fmt, error, io, convert, num};
+use std::{convert, error, fmt, io, num};
 
 /// Defines the general error type of iptables crate
 #[derive(Debug)]

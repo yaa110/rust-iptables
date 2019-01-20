@@ -20,19 +20,19 @@
 
 #[macro_use]
 extern crate lazy_static;
-extern crate regex;
 extern crate nix;
+extern crate regex;
 
 pub mod error;
 
-use std::process::{Command, Output};
+use error::{IPTError, IPTResult};
+use nix::fcntl::{flock, FlockArg};
 use regex::{Match, Regex};
-use error::{IPTResult, IPTError};
+use std::ffi::OsStr;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
-use nix::fcntl::{flock, FlockArg};
+use std::process::{Command, Output};
 use std::vec::Vec;
-use std::ffi::OsStr;
 
 // List of built-in chains taken from: man 8 iptables
 const BUILTIN_CHAINS_FILTER: &'static [&'static str] = &["INPUT", "FORWARD", "OUTPUT"];
@@ -97,24 +97,38 @@ pub fn new(is_ipv6: bool) -> IPTResult<IPTables> {
 /// Creates a new `IPTables` Result with the command of 'iptables' if `is_ipv6` is `false`, otherwise the command is 'ip6tables'.
 #[cfg(target_os = "linux")]
 pub fn new(is_ipv6: bool) -> IPTResult<IPTables> {
-    let cmd = if is_ipv6 {
-        "ip6tables"
-    } else {
-        "iptables"
-    };
+    let cmd = if is_ipv6 { "ip6tables" } else { "iptables" };
 
     let version_output = Command::new(cmd).arg("--version").output()?;
     let re = Regex::new(r"v(\d+)\.(\d+)\.(\d+)")?;
     let version_string = String::from_utf8_lossy(&version_output.stdout).into_owned();
-    let versions = re.captures(&version_string).ok_or("invalid version number")?;
-    let v_major = versions.get(1).ok_or("unable to get major version number")?.as_str().parse::<i32>()?;
-    let v_minor = versions.get(2).ok_or("unable to get minor version number")?.as_str().parse::<i32>()?;
-    let v_patch = versions.get(3).ok_or("unable to get patch version number")?.as_str().parse::<i32>()?;
+    let versions = re
+        .captures(&version_string)
+        .ok_or("invalid version number")?;
+    let v_major = versions
+        .get(1)
+        .ok_or("unable to get major version number")?
+        .as_str()
+        .parse::<i32>()?;
+    let v_minor = versions
+        .get(2)
+        .ok_or("unable to get minor version number")?
+        .as_str()
+        .parse::<i32>()?;
+    let v_patch = versions
+        .get(3)
+        .ok_or("unable to get patch version number")?
+        .as_str()
+        .parse::<i32>()?;
 
     Ok(IPTables {
         cmd: cmd,
-        has_check: (v_major > 1) || (v_major == 1 && v_minor > 4) || (v_major == 1 && v_minor == 4 && v_patch > 10),
-        has_wait: (v_major > 1) || (v_major == 1 && v_minor > 4) || (v_major == 1 && v_minor == 4 && v_patch > 19),
+        has_check: (v_major > 1)
+            || (v_major == 1 && v_minor > 4)
+            || (v_major == 1 && v_minor == 4 && v_patch > 10),
+        has_wait: (v_major > 1)
+            || (v_major == 1 && v_minor > 4)
+            || (v_major == 1 && v_minor == 4 && v_patch > 19),
     })
 }
 
@@ -123,25 +137,31 @@ impl IPTables {
     pub fn get_policy(&self, table: &str, chain: &str) -> IPTResult<String> {
         let builtin_chains = get_builtin_chains(table)?;
         if !builtin_chains.iter().as_slice().contains(&chain) {
-            return Err(IPTError::Other("given chain is not a default chain in the given table, can't get policy"));
+            return Err(IPTError::Other(
+                "given chain is not a default chain in the given table, can't get policy",
+            ));
         }
 
-        let output = String::from_utf8_lossy(&self.run(&["-t", table, "-L", chain])?.stdout)
-            .into_owned();
+        let output =
+            String::from_utf8_lossy(&self.run(&["-t", table, "-L", chain])?.stdout).into_owned();
         for item in output.trim().split("\n") {
             let fields = item.split(" ").collect::<Vec<&str>>();
             if fields.len() > 1 && fields[0] == "Chain" && fields[1] == chain {
                 return Ok(fields[3].replace(")", ""));
             }
         }
-        Err(IPTError::Other("could not find the default policy for table and chain"))
+        Err(IPTError::Other(
+            "could not find the default policy for table and chain",
+        ))
     }
 
     /// Set the default policy for a table/chain.
     pub fn set_policy(&self, table: &str, chain: &str, policy: &str) -> IPTResult<bool> {
         let builtin_chains = get_builtin_chains(table)?;
         if !builtin_chains.iter().as_slice().contains(&chain) {
-            return Err(IPTError::Other("given chain is not a default chain in the given table, can't set policy"));
+            return Err(IPTError::Other(
+                "given chain is not a default chain in the given table, can't set policy",
+            ));
         }
 
         match self.run(&["-t", table, "-P", chain, policy]) {
@@ -183,7 +203,13 @@ impl IPTables {
     /// Inserts `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is inserted.
     pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-I", chain, &position.to_string()], rule.split_quoted().as_slice()].concat()) {
+        match self.run(
+            &[
+                &["-t", table, "-I", chain, &position.to_string()],
+                rule.split_quoted().as_slice(),
+            ]
+            .concat(),
+        ) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
@@ -191,9 +217,15 @@ impl IPTables {
 
     /// Inserts `rule` in the `position` to the table/chain if it does not exist.
     /// Returns `true` if the rule is inserted.
-    pub fn insert_unique(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
+    pub fn insert_unique(
+        &self,
+        table: &str,
+        chain: &str,
+        rule: &str,
+        position: i32,
+    ) -> IPTResult<bool> {
         if self.exists(table, chain, rule)? {
-            return Err(IPTError::Other("the rule exists in the table/chain"))
+            return Err(IPTError::Other("the rule exists in the table/chain"));
         }
 
         self.insert(table, chain, rule, position)
@@ -202,7 +234,13 @@ impl IPTables {
     /// Replaces `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is replaced.
     pub fn replace(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-R", chain, &position.to_string()], rule.split_quoted().as_slice()].concat()) {
+        match self.run(
+            &[
+                &["-t", table, "-R", chain, &position.to_string()],
+                rule.split_quoted().as_slice(),
+            ]
+            .concat(),
+        ) {
             Ok(output) => Ok(output.status.success()),
             Err(err) => Err(err),
         }
@@ -221,7 +259,7 @@ impl IPTables {
     /// Returns `true` if the rule is appended.
     pub fn append_unique(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
         if self.exists(table, chain, rule)? {
-            return Err(IPTError::Other("the rule exists in the table/chain"))
+            return Err(IPTError::Other("the rule exists in the table/chain"));
         }
 
         self.append(table, chain, rule)
@@ -325,7 +363,9 @@ impl IPTables {
 
     fn exists_old_version(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
         match self.run(&["-t", table, "-S"]) {
-            Ok(output) => Ok(String::from_utf8_lossy(&output.stdout).into_owned().contains(&format!("-A {} {}", chain, rule))),
+            Ok(output) => Ok(String::from_utf8_lossy(&output.stdout)
+                .into_owned()
+                .contains(&format!("-A {} {}", chain, rule))),
             Err(err) => Err(err),
         }
     }
@@ -352,14 +392,19 @@ impl IPTables {
 
             let mut need_retry = true;
             while need_retry {
-                match flock(file_lock.as_ref().unwrap().as_raw_fd(), FlockArg::LockExclusiveNonblock) {
+                match flock(
+                    file_lock.as_ref().unwrap().as_raw_fd(),
+                    FlockArg::LockExclusiveNonblock,
+                ) {
                     Ok(_) => need_retry = false,
-                    Err(e) => if e.errno() == nix::errno::EAGAIN {
-                        // FIXME: may cause infinite loop
-                        need_retry = true;
-                    } else {
-                        return Err(IPTError::Nix(e));
-                    },
+                    Err(e) => {
+                        if e.errno() == nix::errno::EAGAIN {
+                            // FIXME: may cause infinite loop
+                            need_retry = true;
+                        } else {
+                            return Err(IPTError::Nix(e));
+                        }
+                    }
                 }
             }
             output = output_cmd.args(args).output()?;
