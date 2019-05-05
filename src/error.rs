@@ -37,7 +37,7 @@ impl error::Error for IPTError {
             IPTError::Regex(ref err) => err.description(),
             IPTError::Nix(ref err) => err.description(),
             IPTError::Parse(ref err) => err.description(),
-            IPTError::BadExitStatus(_) => "iptables exited with a non-zero status.",
+            IPTError::BadExitStatus(_) => "iptables exited with a non-zero status",
             IPTError::Other(ref message) => message,
         }
     }
