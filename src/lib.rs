@@ -164,10 +164,8 @@ impl IPTables {
             ));
         }
 
-        match self.run(&["-t", table, "-P", chain, policy]) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-P", chain, policy])
+            .and_then(|_| Ok(()))
     }
 
     /// Executes a given `command` on the chain.
@@ -206,16 +204,14 @@ impl IPTables {
     /// Inserts `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is inserted.
     pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<()> {
-        match self.run(
+        self.run(
             &[
                 &["-t", table, "-I", chain, &position.to_string()],
                 rule.split_quoted().as_slice(),
             ]
             .concat(),
-        ) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        )
+        .and_then(|_| Ok(()))
     }
 
     /// Inserts `rule` in the `position` to the table/chain if it does not exist.
@@ -237,25 +233,21 @@ impl IPTables {
     /// Replaces `rule` in the `position` to the table/chain.
     /// Returns `true` if the rule is replaced.
     pub fn replace(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<()> {
-        match self.run(
+        self.run(
             &[
                 &["-t", table, "-R", chain, &position.to_string()],
                 rule.split_quoted().as_slice(),
             ]
             .concat(),
-        ) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        )
+        .and_then(|_| Ok(()))
     }
 
     /// Appends `rule` to the table/chain.
     /// Returns `true` if the rule is appended.
     pub fn append(&self, table: &str, chain: &str, rule: &str) -> IPTResult<()> {
-        match self.run(&[&["-t", table, "-A", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&[&["-t", table, "-A", chain], rule.split_quoted().as_slice()].concat())
+            .and_then(|_| Ok(()))
     }
 
     /// Appends `rule` to the table/chain if it does not exist.
@@ -281,10 +273,8 @@ impl IPTables {
     /// Deletes `rule` from the table/chain.
     /// Returns `true` if the rule is deleted.
     pub fn delete(&self, table: &str, chain: &str, rule: &str) -> IPTResult<()> {
-        match self.run(&[&["-t", table, "-D", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&[&["-t", table, "-D", chain], rule.split_quoted().as_slice()].concat())
+            .and_then(|_| Ok(()))
     }
 
     /// Deletes all repetition of the `rule` from the table/chain.
@@ -322,37 +312,26 @@ impl IPTables {
     /// Creates a new user-defined chain.
     /// Returns `true` if the chain is created.
     pub fn new_chain(&self, table: &str, chain: &str) -> IPTResult<()> {
-        match self.run(&["-t", table, "-N", chain]) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-N", chain]).and_then(|_| Ok(()))
     }
 
     /// Flushes (deletes all rules) a chain.
     /// Returns `true` if the chain is flushed.
     pub fn flush_chain(&self, table: &str, chain: &str) -> IPTResult<()> {
-        match self.run(&["-t", table, "-F", chain]) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-F", chain]).and_then(|_| Ok(()))
     }
 
     /// Renames a chain in the table.
     /// Returns `true` if the chain is renamed.
     pub fn rename_chain(&self, table: &str, old_chain: &str, new_chain: &str) -> IPTResult<()> {
-        match self.run(&["-t", table, "-E", old_chain, new_chain]) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-E", old_chain, new_chain])
+            .and_then(|_| Ok(()))
     }
 
     /// Deletes a user-defined chain in the table.
     /// Returns `true` if the chain is deleted.
     pub fn delete_chain(&self, table: &str, chain: &str) -> IPTResult<()> {
-        match self.run(&["-t", table, "-X", chain]) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-X", chain]).and_then(|_| Ok(()))
     }
 
     /// Flushes all chains in a table.
