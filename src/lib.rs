@@ -358,10 +358,7 @@ impl IPTables {
     /// Flushes all chains in a table.
     /// Returns `true` if the chains are flushed.
     pub fn flush_table(&self, table: &str) -> IPTResult<()> {
-        match self.run(&["-t", table, "-F"]) {
-            Ok(_) => Ok(()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-F"]).and_then(|_| Ok(()))
     }
 
     fn exists_old_version(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
