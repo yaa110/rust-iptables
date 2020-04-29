@@ -43,7 +43,7 @@ const BUILTIN_CHAINS_RAW: &'static [&'static str] = &["PREROUTING", "OUTPUT"];
 const BUILTIN_CHAINS_SECURITY: &'static [&'static str] = &["INPUT", "OUTPUT", "FORWARD"];
 
 lazy_static! {
-    static ref RE_SPLIT: Regex = Regex::new(r#"["'].+?["']|[^ ]+"#).unwrap();
+    static ref RE_SPLIT: Regex = Regex::new(r#"".+?"|'.+?'|[^ ]+"#).unwrap();
 }
 
 trait SplitQuoted {
@@ -62,6 +62,27 @@ impl SplitQuoted for str {
             // Collect
             .collect::<Vec<_>>()
     }
+}
+
+// process rule with escaping and quoting to match the format output by iptables-save or -S
+fn process_quoting(rule: &str) -> String {
+    // Split on spaces and quoted arguments
+    rule.split_quoted()
+        .iter()
+        .map(|&x| {
+            // iptables comments extention truncates to 255 characters.
+            let mut truncated = x.to_string();
+            truncated.truncate(255);
+            if truncated.contains(" ") {
+                // Re-add quotes to strings with spaces
+                format!("\"{}\"", truncated.escape_default())
+            } else {
+                truncated.escape_default().to_string()
+            }
+        })
+        .collect::<Vec<String>>()
+         // Re-assemble back into rule String
+        .join(" ")
 }
 
 fn get_builtin_chains(table: &str) -> IPTResult<&[&str]> {
@@ -325,7 +346,10 @@ impl IPTables {
 
     fn exists_old_version(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
         match self.run(&["-t", table, "-S"]) {
-            Ok(output) => Ok(String::from_utf8_lossy(&output.stdout).into_owned().contains(&format!("-A {} {}", chain, rule))),
+            Ok(output) => {
+                let output = String::from_utf8_lossy(&output.stdout).into_owned();
+                Ok(output.contains(&format!("-A {} {}", chain, process_quoting(rule))))
+            }
             Err(err) => Err(err),
         }
     }
