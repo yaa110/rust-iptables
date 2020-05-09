@@ -30,10 +30,15 @@ fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
     assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.delete("nat", new_name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.insert("nat", new_name, "-j ACCEPT", 1).unwrap(), true);
+    assert_eq!(ipt.append("nat", new_name, "-m comment --comment \"Really long comments are truncated to 255 characters.  Test to ensure that truncated comments still match after rule has been installed.  This mainly needs to be tested for old versions of iptable that do not have check-funtionality since we must process the command ourselves for comparison.\" -j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.exists("nat", new_name, "-m comment --comment \"Really long comments are truncated to 255 characters.  Test to ensure that truncated comments still match after rule has been installed.  This mainly needs to be tested for old versions of iptable that do not have check-funtionality since we must process the command ourselves for comparison.\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.append("nat", new_name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.exists("nat", new_name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.append("nat", new_name, "-m comment --comment \"double-quoted comment with \'nested quote\' and more\" -j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.exists("nat", new_name, "-m comment --comment \"double-quoted comment with \'nested quote\' and more\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.append("nat", new_name, "-m comment --comment 'single-quoted comment' -j ACCEPT").unwrap(), true);
-    // The following `exists`-check has to use double-quotes, since the iptables output (if it
+    assert_eq!(ipt.exists("nat", new_name, "-m comment --comment 'single-quoted comment' -j ACCEPT").unwrap(), true);
+    // The following `exists`-check uses double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
     assert_eq!(ipt.exists("nat", new_name, "-m comment --comment \"single-quoted comment\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.flush_chain("nat", new_name).unwrap(), true);
@@ -56,10 +61,15 @@ fn filter(ipt: iptables::IPTables, name: &str) {
     assert_eq!(ipt.list("filter", name).unwrap().len(), 1);
     assert!(ipt.execute("filter", &format!("-A {} -j ACCEPT", name)).is_ok());
     assert_eq!(ipt.exists("filter", name, "-j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.append("filter", name, "-m comment --comment \"Really long comments are truncated to 255 characters.  Test to ensure that truncated comments still match after rule has been installed.  This mainly needs to be tested for old versions of iptable that don't have check-funtionality since we must process the command ourselves for comparison.\" -j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.exists("filter", name, "-m comment --comment \"Really long comments are truncated to 255 characters.  Test to ensure that truncated comments still match after rule has been installed.  This mainly needs to be tested for old versions of iptable that don't have check-funtionality since we must process the command ourselves for comparison.\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.append("filter", name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.exists("filter", name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.append("filter", name, "-m comment --comment \"double-quoted comment with \'nested quote\'\" -j ACCEPT").unwrap(), true);
+    assert_eq!(ipt.exists("filter", name, "-m comment --comment \"double-quoted comment with \'nested quote\'\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.append("filter", name, "-m comment --comment 'single-quoted comment' -j ACCEPT").unwrap(), true);
-    // The following `exists`-check has to use double-quotes, since the iptables output (if it
+    assert_eq!(ipt.exists("filter", name, "-m comment --comment 'single-quoted comment' -j ACCEPT").unwrap(), true);
+    // The following `exists`-check uses double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
     assert_eq!(ipt.exists("filter", name, "-m comment --comment \"single-quoted comment\" -j ACCEPT").unwrap(), true);
     assert_eq!(ipt.flush_chain("filter", name).unwrap(), true);
