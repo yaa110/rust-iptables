@@ -10,17 +10,24 @@ fn test_new() {
 
 #[test]
 fn test_old() {
-    nat(iptables::IPTables{
-        cmd: "iptables",
-        has_wait: false,
-        has_check: false,
-    }, "NATOLD", "NATOLD2");
+    nat(
+        iptables::IPTables {
+            cmd: "iptables",
+            has_wait: false,
+            has_check: false,
+        },
+        "NATOLD",
+        "NATOLD2",
+    );
 
-    filter(iptables::IPTables{
-        cmd: "iptables",
-        has_wait: false,
-        has_check: false,
-    }, "FILTEROLD");
+    filter(
+        iptables::IPTables {
+            cmd: "iptables",
+            has_wait: false,
+            has_check: false,
+        },
+        "FILTEROLD",
+    );
 }
 
 fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
@@ -30,15 +37,49 @@ fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
     assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.delete("nat", new_name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.insert("nat", new_name, "-j ACCEPT", 1).unwrap(), true);
-    assert_eq!(ipt.append("nat", new_name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.exists("nat", new_name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.append("nat", new_name, "-m comment --comment 'single-quoted comment' -j ACCEPT").unwrap(), true);
+    assert_eq!(
+        ipt.append(
+            "nat",
+            new_name,
+            "-m comment --comment \"double-quoted comment\" -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
+    assert_eq!(
+        ipt.exists(
+            "nat",
+            new_name,
+            "-m comment --comment \"double-quoted comment\" -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
+    assert_eq!(
+        ipt.append(
+            "nat",
+            new_name,
+            "-m comment --comment 'single-quoted comment' -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
     // The following `exists`-check has to use double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
-    assert_eq!(ipt.exists("nat", new_name, "-m comment --comment \"single-quoted comment\" -j ACCEPT").unwrap(), true);
+    assert_eq!(
+        ipt.exists(
+            "nat",
+            new_name,
+            "-m comment --comment \"single-quoted comment\" -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
     assert_eq!(ipt.flush_chain("nat", new_name).unwrap(), true);
     assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), false);
-    assert!(ipt.execute("nat", &format!("-A {} -j ACCEPT", new_name)).is_ok());
+    assert!(ipt
+        .execute("nat", &format!("-A {} -j ACCEPT", new_name))
+        .is_ok());
     assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), true);
     assert_eq!(ipt.flush_chain("nat", new_name).unwrap(), true);
     assert_eq!(ipt.chain_exists("nat", new_name).unwrap(), true);
@@ -54,14 +95,48 @@ fn filter(ipt: iptables::IPTables, name: &str) {
     assert_eq!(ipt.exists("filter", name, "-j ACCEPT").unwrap(), false);
     assert_eq!(ipt.delete("filter", name, "-j DROP").unwrap(), true);
     assert_eq!(ipt.list("filter", name).unwrap().len(), 1);
-    assert!(ipt.execute("filter", &format!("-A {} -j ACCEPT", name)).is_ok());
+    assert!(ipt
+        .execute("filter", &format!("-A {} -j ACCEPT", name))
+        .is_ok());
     assert_eq!(ipt.exists("filter", name, "-j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.append("filter", name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.exists("filter", name, "-m comment --comment \"double-quoted comment\" -j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.append("filter", name, "-m comment --comment 'single-quoted comment' -j ACCEPT").unwrap(), true);
+    assert_eq!(
+        ipt.append(
+            "filter",
+            name,
+            "-m comment --comment \"double-quoted comment\" -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
+    assert_eq!(
+        ipt.exists(
+            "filter",
+            name,
+            "-m comment --comment \"double-quoted comment\" -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
+    assert_eq!(
+        ipt.append(
+            "filter",
+            name,
+            "-m comment --comment 'single-quoted comment' -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
     // The following `exists`-check has to use double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
-    assert_eq!(ipt.exists("filter", name, "-m comment --comment \"single-quoted comment\" -j ACCEPT").unwrap(), true);
+    assert_eq!(
+        ipt.exists(
+            "filter",
+            name,
+            "-m comment --comment \"single-quoted comment\" -j ACCEPT"
+        )
+        .unwrap(),
+        true
+    );
     assert_eq!(ipt.flush_chain("filter", name).unwrap(), true);
     assert_eq!(ipt.chain_exists("filter", name).unwrap(), true);
     assert_eq!(ipt.delete_chain("filter", name).unwrap(), true);
@@ -117,7 +192,8 @@ fn test_set_policy() {
     });
 
     // Reset the policy to the retained value
-    ipt.set_policy("mangle", "FORWARD", &current_policy).unwrap();
+    ipt.set_policy("mangle", "FORWARD", &current_policy)
+        .unwrap();
 
     // "Rethrow" a potential caught panic
     assert!(result.is_ok());

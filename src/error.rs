@@ -1,7 +1,4 @@
-extern crate regex;
-extern crate nix;
-
-use std::{fmt, error, io, convert, num};
+use std::{convert, error, fmt, io, num};
 
 /// Defines the general error type of iptables crate
 #[derive(Debug)]
@@ -39,7 +36,7 @@ impl error::Error for IPTError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             IPTError::Io(ref err) => Some(err),
             IPTError::Regex(ref err) => Some(err),

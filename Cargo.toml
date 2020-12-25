@@ -1,8 +1,8 @@
 [package]
 name = "iptables"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["Navid Fathollahzade <yaa110@gmail.com>", "Pit Kleyersburg <pitkley@googlemail.com>"]
-
+edition = "2018"
 description = "Rust bindings for iptables"
 homepage = "https://github.com/yaa110/rust-iptables"
 documentation = "https://github.com/yaa110/rust-iptables"
@@ -16,6 +16,6 @@ license = "MIT"
 name = "iptables"
 
 [dependencies]
-lazy_static = "0.2.8"
-regex = "0.2"
-nix = "0.7.0"
+lazy_static = "1.4"
+regex = "1.4"
+nix = "0.19"
