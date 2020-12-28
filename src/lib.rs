@@ -14,9 +14,13 @@
 //! assert!(ipt.delete_chain("nat", "NEWCHAINNAME").is_ok());
 //! ```
 
+pub mod error;
+
+use error::IptablesError;
 use lazy_static::lazy_static;
 use nix::fcntl::{flock, FlockArg};
 use regex::{Match, Regex};
+use std::convert::From;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -60,12 +64,7 @@ fn error_from_str(msg: &str) -> Box<dyn Error> {
 
 fn output_to_result(output: Output) -> Result<(), Box<dyn Error>> {
     if !output.status.success() {
-        let msg = format!(
-            "iptables returned non-zero status code: {} - {}",
-            output.status.code().unwrap_or(-1),
-            String::from_utf8_lossy(output.stderr.as_slice()),
-        );
-        return Err(error_from_str(msg.as_str()));
+        return Err(Box::new(IptablesError::from(output)));
     }
     Ok(())
 }
