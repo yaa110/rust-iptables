@@ -31,116 +31,100 @@ fn test_old() {
 }
 
 fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
-    assert_eq!(ipt.new_chain("nat", old_name).unwrap(), true);
-    assert_eq!(ipt.rename_chain("nat", old_name, new_name).unwrap(), true);
-    assert_eq!(ipt.append("nat", new_name, "-j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.delete("nat", new_name, "-j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.insert("nat", new_name, "-j ACCEPT", 1).unwrap(), true);
-    assert_eq!(
-        ipt.append(
+    assert!(ipt.new_chain("nat", old_name).is_ok());
+    assert!(ipt.rename_chain("nat", old_name, new_name).is_ok());
+    assert!(ipt.append("nat", new_name, "-j ACCEPT").is_ok());
+    assert!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap());
+    assert!(ipt.delete("nat", new_name, "-j ACCEPT").is_ok());
+    assert!(ipt.insert("nat", new_name, "-j ACCEPT", 1).is_ok());
+    assert!(ipt
+        .append(
             "nat",
             new_name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
-    assert_eq!(
-        ipt.exists(
+        .is_ok(),);
+    assert!(ipt
+        .exists(
             "nat",
             new_name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
-    assert_eq!(
-        ipt.append(
+        .unwrap(),);
+    assert!(ipt
+        .append(
             "nat",
             new_name,
             "-m comment --comment 'single-quoted comment' -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
+        .is_ok(),);
     // The following `exists`-check has to use double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
-    assert_eq!(
-        ipt.exists(
+    assert!(ipt
+        .exists(
             "nat",
             new_name,
             "-m comment --comment \"single-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
-    assert_eq!(ipt.flush_chain("nat", new_name).unwrap(), true);
-    assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), false);
+        .unwrap(),);
+    assert!(ipt.flush_chain("nat", new_name).is_ok());
+    assert!(!ipt.exists("nat", new_name, "-j ACCEPT").unwrap());
     assert!(ipt
         .execute("nat", &format!("-A {} -j ACCEPT", new_name))
         .is_ok());
-    assert_eq!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap(), true);
-    assert_eq!(ipt.flush_chain("nat", new_name).unwrap(), true);
-    assert_eq!(ipt.chain_exists("nat", new_name).unwrap(), true);
-    assert_eq!(ipt.delete_chain("nat", new_name).unwrap(), true);
-    assert_eq!(ipt.chain_exists("nat", new_name).unwrap(), false);
+    assert!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap());
+    assert!(ipt.flush_chain("nat", new_name).is_ok());
+    assert!(ipt.chain_exists("nat", new_name).unwrap());
+    assert!(ipt.delete_chain("nat", new_name).is_ok());
+    assert!(!ipt.chain_exists("nat", new_name).unwrap());
 }
 
 fn filter(ipt: iptables::IPTables, name: &str) {
-    assert_eq!(ipt.new_chain("filter", name).unwrap(), true);
-    assert_eq!(ipt.insert("filter", name, "-j ACCEPT", 1).unwrap(), true);
-    assert_eq!(ipt.replace("filter", name, "-j DROP", 1).unwrap(), true);
-    assert_eq!(ipt.exists("filter", name, "-j DROP").unwrap(), true);
-    assert_eq!(ipt.exists("filter", name, "-j ACCEPT").unwrap(), false);
-    assert_eq!(ipt.delete("filter", name, "-j DROP").unwrap(), true);
+    assert!(ipt.new_chain("filter", name).is_ok());
+    assert!(ipt.insert("filter", name, "-j ACCEPT", 1).is_ok());
+    assert!(ipt.replace("filter", name, "-j DROP", 1).is_ok());
+    assert!(ipt.exists("filter", name, "-j DROP").unwrap());
+    assert!(!ipt.exists("filter", name, "-j ACCEPT").unwrap());
+    assert!(ipt.delete("filter", name, "-j DROP").is_ok());
     assert_eq!(ipt.list("filter", name).unwrap().len(), 1);
     assert!(ipt
         .execute("filter", &format!("-A {} -j ACCEPT", name))
         .is_ok());
-    assert_eq!(ipt.exists("filter", name, "-j ACCEPT").unwrap(), true);
-    assert_eq!(
-        ipt.append(
+    assert!(ipt.exists("filter", name, "-j ACCEPT").unwrap());
+    assert!(ipt
+        .append(
             "filter",
             name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
-    assert_eq!(
-        ipt.exists(
+        .is_ok(),);
+    assert!(ipt
+        .exists(
             "filter",
             name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
-    assert_eq!(
-        ipt.append(
+        .unwrap());
+    assert!(ipt
+        .append(
             "filter",
             name,
             "-m comment --comment 'single-quoted comment' -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
+        .is_ok(),);
     // The following `exists`-check has to use double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
-    assert_eq!(
-        ipt.exists(
+    assert!(ipt
+        .exists(
             "filter",
             name,
             "-m comment --comment \"single-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),
-        true
-    );
-    assert_eq!(ipt.flush_chain("filter", name).unwrap(), true);
-    assert_eq!(ipt.chain_exists("filter", name).unwrap(), true);
-    assert_eq!(ipt.delete_chain("filter", name).unwrap(), true);
-    assert_eq!(ipt.chain_exists("filter", name).unwrap(), false);
+        .unwrap(),);
+    assert!(ipt.flush_chain("filter", name).is_ok());
+    assert!(ipt.chain_exists("filter", name).unwrap());
+    assert!(ipt.delete_chain("filter", name).is_ok());
+    assert!(!ipt.chain_exists("filter", name).unwrap());
 }
 
 #[test]
@@ -187,7 +171,7 @@ fn test_set_policy() {
     // If the following assertions fail or any other panic occurs, we still have to ensure not to
     // change the policy for the user.
     let result = panic::catch_unwind(|| {
-        assert_eq!(ipt.set_policy("mangle", "FORWARD", "DROP").unwrap(), true);
+        assert!(ipt.set_policy("mangle", "FORWARD", "DROP").is_ok());
         assert_eq!(ipt.get_policy("mangle", "FORWARD").unwrap(), "DROP");
     });
 

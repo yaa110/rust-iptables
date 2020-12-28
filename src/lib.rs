@@ -6,22 +6,18 @@
 //!
 //! # Example
 //! ```
-//! fn main() {
-//!     let ipt = iptables::new(false).unwrap();
-//!     assert_eq!(ipt.new_chain("nat", "NEWCHAINNAME").unwrap(), true);
-//!     assert_eq!(ipt.append("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
-//!     assert_eq!(ipt.exists("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
-//!     assert_eq!(ipt.delete("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
-//!     assert_eq!(ipt.delete_chain("nat", "NEWCHAINNAME").unwrap(), true);
-//! }
+//! let ipt = iptables::new(false).unwrap();
+//! assert!(ipt.new_chain("nat", "NEWCHAINNAME").is_ok());
+//! assert!(ipt.append("nat", "NEWCHAINNAME", "-j ACCEPT").is_ok());
+//! assert!(ipt.exists("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap());
+//! assert!(ipt.delete("nat", "NEWCHAINNAME", "-j ACCEPT").is_ok());
+//! assert!(ipt.delete_chain("nat", "NEWCHAINNAME").is_ok());
 //! ```
 
-pub mod error;
-
-use error::{IPTError, IPTResult};
 use lazy_static::lazy_static;
 use nix::fcntl::{flock, FlockArg};
 use regex::{Match, Regex};
+use std::error::Error;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::os::unix::io::AsRawFd;
@@ -58,14 +54,30 @@ impl SplitQuoted for str {
     }
 }
 
-fn get_builtin_chains(table: &str) -> IPTResult<&[&str]> {
+fn error_from_str(msg: &str) -> Box<dyn Error> {
+    msg.into()
+}
+
+fn output_to_result(output: Output) -> Result<(), Box<dyn Error>> {
+    if !output.status.success() {
+        let msg = format!(
+            "iptables returned non-zero status code: {} - {}",
+            output.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(output.stderr.as_slice()),
+        );
+        return Err(error_from_str(msg.as_str()));
+    }
+    Ok(())
+}
+
+fn get_builtin_chains(table: &str) -> Result<&[&str], Box<dyn Error>> {
     match table {
         "filter" => Ok(BUILTIN_CHAINS_FILTER),
         "mangle" => Ok(BUILTIN_CHAINS_MANGLE),
         "nat" => Ok(BUILTIN_CHAINS_NAT),
         "raw" => Ok(BUILTIN_CHAINS_RAW),
         "security" => Ok(BUILTIN_CHAINS_SECURITY),
-        _ => Err(IPTError::Other("given table is not supported by iptables")),
+        _ => Err(error_from_str("given table is not supported by iptables")),
     }
 }
 
@@ -84,18 +96,18 @@ pub struct IPTables {
 
 /// Returns `None` because iptables only works on linux
 #[cfg(not(target_os = "linux"))]
-pub fn new(is_ipv6: bool) -> IPTResult<IPTables> {
+pub fn new(is_ipv6: bool) -> Result<IPTables, Box<dyn Error>> {
     Err(IPTError::Other("iptables only works on Linux"))
 }
 
 /// Creates a new `IPTables` Result with the command of 'iptables' if `is_ipv6` is `false`, otherwise the command is 'ip6tables'.
 #[cfg(target_os = "linux")]
-pub fn new(is_ipv6: bool) -> IPTResult<IPTables> {
+pub fn new(is_ipv6: bool) -> Result<IPTables, Box<dyn Error>> {
     let cmd = if is_ipv6 { "ip6tables" } else { "iptables" };
 
     let version_output = Command::new(cmd).arg("--version").output()?;
     let re = Regex::new(r"v(\d+)\.(\d+)\.(\d+)")?;
-    let version_string = String::from_utf8_lossy(&version_output.stdout).into_owned();
+    let version_string = String::from_utf8_lossy(version_output.stdout.as_slice());
     let versions = re
         .captures(&version_string)
         .ok_or("invalid version number")?;
@@ -128,140 +140,155 @@ pub fn new(is_ipv6: bool) -> IPTResult<IPTables> {
 
 impl IPTables {
     /// Get the default policy for a table/chain.
-    pub fn get_policy(&self, table: &str, chain: &str) -> IPTResult<String> {
+    pub fn get_policy(&self, table: &str, chain: &str) -> Result<String, Box<dyn Error>> {
         let builtin_chains = get_builtin_chains(table)?;
         if !builtin_chains.iter().as_slice().contains(&chain) {
-            return Err(IPTError::Other(
+            return Err(error_from_str(
                 "given chain is not a default chain in the given table, can't get policy",
             ));
         }
 
-        let output =
-            String::from_utf8_lossy(&self.run(&["-t", table, "-L", chain])?.stdout).into_owned();
-        for item in output.trim().split("\n") {
-            let fields = item.split(" ").collect::<Vec<&str>>();
+        let stdout = self.run(&["-t", table, "-L", chain])?.stdout;
+        let output = String::from_utf8_lossy(stdout.as_slice());
+        for item in output.trim().split('\n') {
+            let fields = item.split(' ').collect::<Vec<&str>>();
             if fields.len() > 1 && fields[0] == "Chain" && fields[1] == chain {
                 return Ok(fields[3].replace(")", ""));
             }
         }
-        Err(IPTError::Other(
+        Err(error_from_str(
             "could not find the default policy for table and chain",
         ))
     }
 
     /// Set the default policy for a table/chain.
-    pub fn set_policy(&self, table: &str, chain: &str, policy: &str) -> IPTResult<bool> {
+    pub fn set_policy(&self, table: &str, chain: &str, policy: &str) -> Result<(), Box<dyn Error>> {
         let builtin_chains = get_builtin_chains(table)?;
         if !builtin_chains.iter().as_slice().contains(&chain) {
-            return Err(IPTError::Other(
+            return Err(error_from_str(
                 "given chain is not a default chain in the given table, can't set policy",
             ));
         }
 
-        match self.run(&["-t", table, "-P", chain, policy]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+        self.run(&["-t", table, "-P", chain, policy])
+            .and_then(output_to_result)
     }
 
     /// Executes a given `command` on the chain.
     /// Returns the command output if successful.
-    pub fn execute(&self, table: &str, command: &str) -> IPTResult<Output> {
+    pub fn execute(&self, table: &str, command: &str) -> Result<Output, Box<dyn Error>> {
         self.run(&[&["-t", table], command.split_quoted().as_slice()].concat())
     }
 
     /// Checks for the existence of the `rule` in the table/chain.
     /// Returns true if the rule exists.
     #[cfg(target_os = "linux")]
-    pub fn exists(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn exists(&self, table: &str, chain: &str, rule: &str) -> Result<bool, Box<dyn Error>> {
         if !self.has_check {
             return self.exists_old_version(table, chain, rule);
         }
 
-        match self.run(&[&["-t", table, "-C", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+        self.run(&[&["-t", table, "-C", chain], rule.split_quoted().as_slice()].concat())
+            .map(|output| output.status.success())
     }
 
     /// Checks for the existence of the `chain` in the table.
     /// Returns true if the chain exists.
     #[cfg(target_os = "linux")]
-    pub fn chain_exists(&self, table: &str, chain: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-L", chain]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn chain_exists(&self, table: &str, chain: &str) -> Result<bool, Box<dyn Error>> {
+        self.run(&["-t", table, "-L", chain])
+            .map(|output| output.status.success())
+    }
+
+    fn exists_old_version(
+        &self,
+        table: &str,
+        chain: &str,
+        rule: &str,
+    ) -> Result<bool, Box<dyn Error>> {
+        self.run(&["-t", table, "-S"]).map(|output| {
+            String::from_utf8_lossy(&output.stdout).contains(&format!("-A {} {}", chain, rule))
+        })
     }
 
     /// Inserts `rule` in the `position` to the table/chain.
-    /// Returns `true` if the rule is inserted.
-    pub fn insert(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
-        match self.run(
+    pub fn insert(
+        &self,
+        table: &str,
+        chain: &str,
+        rule: &str,
+        position: i32,
+    ) -> Result<(), Box<dyn Error>> {
+        self.run(
             &[
                 &["-t", table, "-I", chain, &position.to_string()],
                 rule.split_quoted().as_slice(),
             ]
             .concat(),
-        ) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+        )
+        .and_then(output_to_result)
     }
 
     /// Inserts `rule` in the `position` to the table/chain if it does not exist.
-    /// Returns `true` if the rule is inserted.
     pub fn insert_unique(
         &self,
         table: &str,
         chain: &str,
         rule: &str,
         position: i32,
-    ) -> IPTResult<bool> {
+    ) -> Result<(), Box<dyn Error>> {
         if self.exists(table, chain, rule)? {
-            return Err(IPTError::Other("the rule exists in the table/chain"));
+            return Err(error_from_str("the rule exists in the table/chain"));
         }
 
         self.insert(table, chain, rule, position)
     }
 
     /// Replaces `rule` in the `position` to the table/chain.
-    /// Returns `true` if the rule is replaced.
-    pub fn replace(&self, table: &str, chain: &str, rule: &str, position: i32) -> IPTResult<bool> {
-        match self.run(
+    pub fn replace(
+        &self,
+        table: &str,
+        chain: &str,
+        rule: &str,
+        position: i32,
+    ) -> Result<(), Box<dyn Error>> {
+        self.run(
             &[
                 &["-t", table, "-R", chain, &position.to_string()],
                 rule.split_quoted().as_slice(),
             ]
             .concat(),
-        ) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+        )
+        .and_then(output_to_result)
     }
 
     /// Appends `rule` to the table/chain.
-    /// Returns `true` if the rule is appended.
-    pub fn append(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-A", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn append(&self, table: &str, chain: &str, rule: &str) -> Result<(), Box<dyn Error>> {
+        self.run(&[&["-t", table, "-A", chain], rule.split_quoted().as_slice()].concat())
+            .and_then(output_to_result)
     }
 
     /// Appends `rule` to the table/chain if it does not exist.
-    /// Returns `true` if the rule is appended.
-    pub fn append_unique(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn append_unique(
+        &self,
+        table: &str,
+        chain: &str,
+        rule: &str,
+    ) -> Result<(), Box<dyn Error>> {
         if self.exists(table, chain, rule)? {
-            return Err(IPTError::Other("the rule exists in the table/chain"));
+            return Err(error_from_str("the rule exists in the table/chain"));
         }
 
         self.append(table, chain, rule)
     }
 
     /// Appends or replaces `rule` to the table/chain if it does not exist.
-    /// Returns `true` if the rule is appended or replaced.
-    pub fn append_replace(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn append_replace(
+        &self,
+        table: &str,
+        chain: &str,
+        rule: &str,
+    ) -> Result<(), Box<dyn Error>> {
         if self.exists(table, chain, rule)? {
             self.delete(table, chain, rule)?;
         }
@@ -270,39 +297,37 @@ impl IPTables {
     }
 
     /// Deletes `rule` from the table/chain.
-    /// Returns `true` if the rule is deleted.
-    pub fn delete(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
-        match self.run(&[&["-t", table, "-D", chain], rule.split_quoted().as_slice()].concat()) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn delete(&self, table: &str, chain: &str, rule: &str) -> Result<(), Box<dyn Error>> {
+        self.run(&[&["-t", table, "-D", chain], rule.split_quoted().as_slice()].concat())
+            .and_then(output_to_result)
     }
 
     /// Deletes all repetition of the `rule` from the table/chain.
-    /// Returns `true` if the rules are deleted.
-    pub fn delete_all(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
+    pub fn delete_all(&self, table: &str, chain: &str, rule: &str) -> Result<(), Box<dyn Error>> {
         while self.exists(table, chain, rule)? {
             self.delete(table, chain, rule)?;
         }
-        Ok(true)
+
+        Ok(())
     }
 
     /// Lists rules in the table/chain.
-    pub fn list(&self, table: &str, chain: &str) -> IPTResult<Vec<String>> {
+    pub fn list(&self, table: &str, chain: &str) -> Result<Vec<String>, Box<dyn Error>> {
         self.get_list(&["-t", table, "-S", chain])
     }
 
     /// Lists rules in the table.
-    pub fn list_table(&self, table: &str) -> IPTResult<Vec<String>> {
+    pub fn list_table(&self, table: &str) -> Result<Vec<String>, Box<dyn Error>> {
         self.get_list(&["-t", table, "-S"])
     }
 
     /// Lists the name of each chain in the table.
-    pub fn list_chains(&self, table: &str) -> IPTResult<Vec<String>> {
+    pub fn list_chains(&self, table: &str) -> Result<Vec<String>, Box<dyn Error>> {
         let mut list = Vec::new();
-        let output = String::from_utf8_lossy(&self.run(&["-t", table, "-S"])?.stdout).into_owned();
-        for item in output.trim().split("\n") {
-            let fields = item.split(" ").collect::<Vec<&str>>();
+        let stdout = self.run(&["-t", table, "-S"])?.stdout;
+        let output = String::from_utf8_lossy(stdout.as_slice());
+        for item in output.trim().split('\n') {
+            let fields = item.split(' ').collect::<Vec<&str>>();
             if fields.len() > 1 && (fields[0] == "-P" || fields[0] == "-N") {
                 list.push(fields[1].to_string());
             }
@@ -311,69 +336,49 @@ impl IPTables {
     }
 
     /// Creates a new user-defined chain.
-    /// Returns `true` if the chain is created.
-    pub fn new_chain(&self, table: &str, chain: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-N", chain]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn new_chain(&self, table: &str, chain: &str) -> Result<(), Box<dyn Error>> {
+        self.run(&["-t", table, "-N", chain])
+            .and_then(output_to_result)
     }
 
     /// Flushes (deletes all rules) a chain.
-    /// Returns `true` if the chain is flushed.
-    pub fn flush_chain(&self, table: &str, chain: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-F", chain]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn flush_chain(&self, table: &str, chain: &str) -> Result<(), Box<dyn Error>> {
+        self.run(&["-t", table, "-F", chain])
+            .and_then(output_to_result)
     }
 
     /// Renames a chain in the table.
-    /// Returns `true` if the chain is renamed.
-    pub fn rename_chain(&self, table: &str, old_chain: &str, new_chain: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-E", old_chain, new_chain]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn rename_chain(
+        &self,
+        table: &str,
+        old_chain: &str,
+        new_chain: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        self.run(&["-t", table, "-E", old_chain, new_chain])
+            .and_then(output_to_result)
     }
 
     /// Deletes a user-defined chain in the table.
-    /// Returns `true` if the chain is deleted.
-    pub fn delete_chain(&self, table: &str, chain: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-X", chain]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn delete_chain(&self, table: &str, chain: &str) -> Result<(), Box<dyn Error>> {
+        self.run(&["-t", table, "-X", chain])
+            .and_then(output_to_result)
     }
 
     /// Flushes all chains in a table.
-    /// Returns `true` if the chains are flushed.
-    pub fn flush_table(&self, table: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-F"]) {
-            Ok(output) => Ok(output.status.success()),
-            Err(err) => Err(err),
-        }
+    pub fn flush_table(&self, table: &str) -> Result<(), Box<dyn Error>> {
+        self.run(&["-t", table, "-F"]).and_then(output_to_result)
     }
 
-    fn exists_old_version(&self, table: &str, chain: &str, rule: &str) -> IPTResult<bool> {
-        match self.run(&["-t", table, "-S"]) {
-            Ok(output) => Ok(String::from_utf8_lossy(&output.stdout)
-                .into_owned()
-                .contains(&format!("-A {} {}", chain, rule))),
-            Err(err) => Err(err),
-        }
+    fn get_list<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<Vec<String>, Box<dyn Error>> {
+        let stdout = self.run(args)?.stdout;
+        Ok(String::from_utf8_lossy(stdout.as_slice())
+            .trim()
+            .split('\n')
+            .map(String::from)
+            .collect())
     }
 
-    fn get_list<S: AsRef<OsStr>>(&self, args: &[S]) -> IPTResult<Vec<String>> {
-        let mut list = Vec::new();
-        let output = String::from_utf8_lossy(&self.run(args)?.stdout).into_owned();
-        for item in output.trim().split("\n") {
-            list.push(item.to_string())
-        }
-        Ok(list)
-    }
-
-    fn run<S: AsRef<OsStr>>(&self, args: &[S]) -> IPTResult<Output> {
+    fn run<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<Output, Box<dyn Error>> {
         let mut file_lock = None;
 
         let mut output_cmd = Command::new(self.cmd);
@@ -396,20 +401,14 @@ impl IPTables {
                         need_retry = true;
                     }
                     Err(e) => {
-                        return Err(IPTError::Nix(e));
+                        return Err(Box::new(e));
                     }
                 }
             }
             output = output_cmd.args(args).output()?;
         }
 
-        if !self.has_wait {
-            match file_lock {
-                Some(f) => drop(f),
-                None => (),
-            };
-        }
-
+        file_lock.map(|f| drop(f));
         Ok(output)
     }
 }

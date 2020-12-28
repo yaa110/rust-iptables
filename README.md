@@ -7,7 +7,7 @@ This crate provides bindings for [iptables](https://www.netfilter.org/projects/i
 
 ```toml
 [dependencies]
-iptables = "0.3"
+iptables = "0.4"
 ```
 
 ## Getting started
@@ -16,11 +16,11 @@ iptables = "0.3"
 ```rust
 let ipt = iptables::new(false).unwrap();
 
-assert_eq!(ipt.new_chain("nat", "NEWCHAINNAME").unwrap(), true);
-assert_eq!(ipt.append("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
-assert_eq!(ipt.exists("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
-assert_eq!(ipt.delete("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap(), true);
-assert_eq!(ipt.delete_chain("nat", "NEWCHAINNAME").unwrap(), true);
+assert!(ipt.new_chain("nat", "NEWCHAINNAME").is_ok());
+assert!(ipt.append("nat", "NEWCHAINNAME", "-j ACCEPT").is_ok());
+assert!(ipt.exists("nat", "NEWCHAINNAME", "-j ACCEPT").unwrap());
+assert!(ipt.delete("nat", "NEWCHAINNAME", "-j ACCEPT").is_ok());
+assert!(ipt.delete_chain("nat", "NEWCHAINNAME").is_ok());
 ```
 
 For more information, please check the test file in `tests` folder.
