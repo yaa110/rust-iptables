@@ -29,12 +29,11 @@ use std::process::{Command, Output};
 use std::vec::Vec;
 
 // List of built-in chains taken from: man 8 iptables
-const BUILTIN_CHAINS_FILTER: &'static [&'static str] = &["INPUT", "FORWARD", "OUTPUT"];
-const BUILTIN_CHAINS_MANGLE: &'static [&'static str] =
-    &["PREROUTING", "OUTPUT", "INPUT", "FORWARD", "POSTROUTING"];
-const BUILTIN_CHAINS_NAT: &'static [&'static str] = &["PREROUTING", "POSTROUTING", "OUTPUT"];
-const BUILTIN_CHAINS_RAW: &'static [&'static str] = &["PREROUTING", "OUTPUT"];
-const BUILTIN_CHAINS_SECURITY: &'static [&'static str] = &["INPUT", "OUTPUT", "FORWARD"];
+const BUILTIN_CHAINS_FILTER: &[&str] = &["INPUT", "FORWARD", "OUTPUT"];
+const BUILTIN_CHAINS_MANGLE: &[&str] = &["PREROUTING", "OUTPUT", "INPUT", "FORWARD", "POSTROUTING"];
+const BUILTIN_CHAINS_NAT: &[&str] = &["PREROUTING", "POSTROUTING", "OUTPUT"];
+const BUILTIN_CHAINS_RAW: &[&str] = &["PREROUTING", "OUTPUT"];
+const BUILTIN_CHAINS_SECURITY: &[&str] = &["INPUT", "OUTPUT", "FORWARD"];
 
 lazy_static! {
     static ref RE_SPLIT: Regex = Regex::new(r#"["'].+?["']|[^ ]+"#).unwrap();
@@ -127,7 +126,7 @@ pub fn new(is_ipv6: bool) -> Result<IPTables, Box<dyn Error>> {
         .parse::<i32>()?;
 
     Ok(IPTables {
-        cmd: cmd,
+        cmd,
         has_check: (v_major > 1)
             || (v_major == 1 && v_minor > 4)
             || (v_major == 1 && v_minor == 4 && v_patch > 10),
@@ -407,7 +406,9 @@ impl IPTables {
             output = output_cmd.args(args).output()?;
         }
 
-        file_lock.map(|f| drop(f));
+        if let Some(f) = file_lock {
+            drop(f)
+        }
         Ok(output)
     }
 }
