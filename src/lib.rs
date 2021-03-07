@@ -95,7 +95,7 @@ pub struct IPTables {
 /// Returns `None` because iptables only works on linux
 #[cfg(not(target_os = "linux"))]
 pub fn new(is_ipv6: bool) -> Result<IPTables, Box<dyn Error>> {
-    Err(IPTError::Other("iptables only works on Linux"))
+    Err(error_from_str("iptables only works on Linux"))
 }
 
 /// Creates a new `IPTables` Result with the command of 'iptables' if `is_ipv6` is `false`, otherwise the command is 'ip6tables'.
