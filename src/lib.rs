@@ -202,9 +202,11 @@ impl IPTables {
     #[cfg(target_os = "linux")]
     pub fn chain_exists(&self, table: &str, chain: &str) -> Result<bool, Box<dyn Error>> {
         match self.is_numeric {
-            false => self.run(&["-t", table, "-L", chain])
+            false => self
+                .run(&["-t", table, "-L", chain])
                 .map(|output| output.status.success()),
-            true => self.run(&["-t", table, "-L", chain, "-n"])
+            true => self
+                .run(&["-t", table, "-L", chain, "-n"])
                 .map(|output| output.status.success()),
         }
     }
@@ -221,7 +223,7 @@ impl IPTables {
             }),
             true => self.run(&["-t", table, "-S", "-n"]).map(|output| {
                 String::from_utf8_lossy(&output.stdout).contains(&format!("-A {} {}", chain, rule))
-            })
+            }),
         }
     }
 
@@ -330,7 +332,7 @@ impl IPTables {
         match self.is_numeric {
             false => self.get_list(&["-t", table, "-S", chain]),
             true => self.get_list(&["-t", table, "-S", chain, "-n"]),
-        }        
+        }
     }
 
     /// Lists rules in the table.
@@ -422,7 +424,7 @@ impl IPTables {
                     FlockArg::LockExclusiveNonblock,
                 ) {
                     Ok(_) => need_retry = false,
-                    Err(nix::Error::Sys(en)) if en == nix::errno::Errno::EAGAIN => {
+                    Err(e) if e == nix::errno::Errno::EAGAIN => {
                         // FIXME: may cause infinite loop
                         need_retry = true;
                     }
