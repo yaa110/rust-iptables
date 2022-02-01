@@ -1,7 +1,7 @@
 Rust iptables
 =============
 
-[![crates.io](https://img.shields.io/crates/v/iptables.svg)](https://crates.io/crates/iptables) [![Documentation](https://img.shields.io/badge/Docs-iptables-blue.svg)](https://docs.rs/iptables) [![Build Status](https://travis-ci.org/yaa110/rust-iptables.svg)](https://travis-ci.org/yaa110/rust-iptables) [![License](http://img.shields.io/:license-mit-blue.svg)](https://github.com/yaa110/rust-iptables/blob/master/LICENSE)
+[![crates.io](https://img.shields.io/crates/v/iptables.svg)](https://crates.io/crates/iptables) [![Documentation](https://img.shields.io/badge/Docs-iptables-blue.svg)](https://docs.rs/iptables) [![Build](https://github.com/yaa110/rust-iptables/actions/workflows/build.yml/badge.svg)](https://github.com/yaa110/rust-iptables/actions/workflows/build.yml) [![License](http://img.shields.io/:license-mit-blue.svg)](https://github.com/yaa110/rust-iptables/blob/master/LICENSE)
 
 This crate provides bindings for [iptables](https://www.netfilter.org/projects/iptables/index.html) application in Linux (inspired by [go-iptables](https://github.com/coreos/go-iptables)). This crate uses iptables binary to manipulate chains and tables. This source code is licensed under MIT license that can be found in the LICENSE file.
 
