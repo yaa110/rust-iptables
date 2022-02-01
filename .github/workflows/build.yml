@@ -15,6 +15,7 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
+      - run: sudo -E `which cargo` test -j`nproc` -- --test-threads 1
       - run: sudo -E `which cargo` test -j`nproc` -- --ignored --test-threads 1
       - run: sudo -E `which cargo` fmt -- --check
       - run: sudo -E `which cargo` clippy -j`nproc`
