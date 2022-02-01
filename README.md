@@ -7,7 +7,7 @@ This crate provides bindings for [iptables](https://www.netfilter.org/projects/i
 
 ```toml
 [dependencies]
-iptables = "0.4"
+iptables = "*"
 ```
 
 ## Getting started
