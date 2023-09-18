@@ -16,6 +16,6 @@ version = "0.5.0"
 name = "iptables"
 
 [dependencies]
-lazy_static = "1.4"
-nix = "0.23"
-regex = "1.4"
+lazy_static = "1"
+nix = {version = "0.27", features = ["fs"]}
+regex = "1"
