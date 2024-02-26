@@ -105,7 +105,11 @@ pub fn new(is_ipv6: bool) -> Result<IPTables, Box<dyn Error>> {
 #[cfg(target_os = "linux")]
 pub fn new(is_ipv6: bool) -> Result<IPTables, Box<dyn Error>> {
     let cmd = if is_ipv6 { "ip6tables" } else { "iptables" };
+    new_with_cmd(cmd)
+}
 
+#[cfg(target_os = "linux")]
+pub fn new_with_cmd(cmd: &'static str) -> Result<IPTables, Box<dyn Error>> {
     let version_output = Command::new(cmd).arg("--version").output()?;
     let re = Regex::new(r"v(\d+)\.(\d+)\.(\d+)")?;
     let version_string = String::from_utf8_lossy(version_output.stdout.as_slice());
