@@ -184,3 +184,11 @@ fn test_set_policy() {
     // "Rethrow" a potential caught panic
     assert!(result.is_ok());
 }
+
+#[test]
+fn flush_tables() {
+    let ipt = iptables::new(false).unwrap();
+
+    // make sure it doesn't fail when called
+    assert!(ipt.flush_tables().is_ok());
+}
