@@ -391,6 +391,11 @@ impl IPTables {
         self.run(&["-t", table, "-F"]).and_then(output_to_result)
     }
 
+    /// Flushes table via `iptables -F` without specifying table
+    pub fn flush_tables(&self) -> Result<(), Box<dyn Error>> {
+        self.run(&["-F"]).and_then(output_to_result)
+    }
+
     fn get_list<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<Vec<String>, Box<dyn Error>> {
         let stdout = self.run(args)?.stdout;
         Ok(String::from_utf8_lossy(stdout.as_slice())
