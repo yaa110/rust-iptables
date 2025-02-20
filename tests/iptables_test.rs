@@ -39,41 +39,46 @@ fn nat(ipt: iptables::IPTables, old_name: &str, new_name: &str) {
     assert!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap());
     assert!(ipt.delete("nat", new_name, "-j ACCEPT").is_ok());
     assert!(ipt.insert("nat", new_name, "-j ACCEPT", 1).is_ok());
-    assert!(ipt
-        .append(
+    assert!(
+        ipt.append(
             "nat",
             new_name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .is_ok(),);
-    assert!(ipt
-        .exists(
+        .is_ok(),
+    );
+    assert!(
+        ipt.exists(
             "nat",
             new_name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),);
-    assert!(ipt
-        .append(
+        .unwrap(),
+    );
+    assert!(
+        ipt.append(
             "nat",
             new_name,
             "-m comment --comment 'single-quoted comment' -j ACCEPT"
         )
-        .is_ok(),);
+        .is_ok(),
+    );
     // The following `exists`-check has to use double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
-    assert!(ipt
-        .exists(
+    assert!(
+        ipt.exists(
             "nat",
             new_name,
             "-m comment --comment \"single-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),);
+        .unwrap(),
+    );
     assert!(ipt.flush_chain("nat", new_name).is_ok());
     assert!(!ipt.exists("nat", new_name, "-j ACCEPT").unwrap());
-    assert!(ipt
-        .execute("nat", &format!("-A {} -j ACCEPT", new_name))
-        .is_ok());
+    assert!(
+        ipt.execute("nat", &format!("-A {} -j ACCEPT", new_name))
+            .is_ok()
+    );
     assert!(ipt.exists("nat", new_name, "-j ACCEPT").unwrap());
     assert!(ipt.flush_chain("nat", new_name).is_ok());
     assert!(ipt.chain_exists("nat", new_name).unwrap());
@@ -89,40 +94,45 @@ fn filter(ipt: iptables::IPTables, name: &str) {
     assert!(!ipt.exists("filter", name, "-j ACCEPT").unwrap());
     assert!(ipt.delete("filter", name, "-j DROP").is_ok());
     assert_eq!(ipt.list("filter", name).unwrap().len(), 1);
-    assert!(ipt
-        .execute("filter", &format!("-A {} -j ACCEPT", name))
-        .is_ok());
+    assert!(
+        ipt.execute("filter", &format!("-A {} -j ACCEPT", name))
+            .is_ok()
+    );
     assert!(ipt.exists("filter", name, "-j ACCEPT").unwrap());
-    assert!(ipt
-        .append(
+    assert!(
+        ipt.append(
             "filter",
             name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .is_ok(),);
-    assert!(ipt
-        .exists(
+        .is_ok(),
+    );
+    assert!(
+        ipt.exists(
             "filter",
             name,
             "-m comment --comment \"double-quoted comment\" -j ACCEPT"
         )
-        .unwrap());
-    assert!(ipt
-        .append(
+        .unwrap()
+    );
+    assert!(
+        ipt.append(
             "filter",
             name,
             "-m comment --comment 'single-quoted comment' -j ACCEPT"
         )
-        .is_ok(),);
+        .is_ok(),
+    );
     // The following `exists`-check has to use double-quotes, since the iptables output (if it
     // doesn't have the check-functionality) will use double quotes.
-    assert!(ipt
-        .exists(
+    assert!(
+        ipt.exists(
             "filter",
             name,
             "-m comment --comment \"single-quoted comment\" -j ACCEPT"
         )
-        .unwrap(),);
+        .unwrap(),
+    );
     assert!(ipt.flush_chain("filter", name).is_ok());
     assert!(ipt.chain_exists("filter", name).unwrap());
     assert!(ipt.delete_chain("filter", name).is_ok());

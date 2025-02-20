@@ -18,7 +18,7 @@ pub mod error;
 
 use error::IptablesError;
 use lazy_static::lazy_static;
-use nix::fcntl::{flock, FlockArg};
+use nix::fcntl::{FlockArg, flock};
 use regex::{Match, Regex};
 use std::convert::From;
 use std::error::Error;
