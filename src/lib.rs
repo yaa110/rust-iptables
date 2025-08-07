@@ -18,13 +18,10 @@ pub mod error;
 
 use error::IptablesError;
 use lazy_static::lazy_static;
-use nix::fcntl::{FlockArg, flock};
 use regex::{Match, Regex};
 use std::convert::From;
 use std::error::Error;
 use std::ffi::OsStr;
-use std::fs::File;
-use std::os::unix::io::AsRawFd;
 use std::process::{Command, Output};
 use std::vec::Vec;
 
@@ -407,38 +404,15 @@ impl IPTables {
     }
 
     fn run<S: AsRef<OsStr>>(&self, args: &[S]) -> Result<Output, Box<dyn Error>> {
-        let mut file_lock = None;
-
         let mut output_cmd = Command::new(self.cmd);
         let output;
 
         if self.has_wait {
             output = output_cmd.args(args).arg("--wait").output()?;
         } else {
-            file_lock = Some(File::create("/var/run/xtables_old.lock")?);
-
-            let mut need_retry = true;
-            while need_retry {
-                match flock(
-                    file_lock.as_ref().unwrap().as_raw_fd(),
-                    FlockArg::LockExclusiveNonblock,
-                ) {
-                    Ok(_) => need_retry = false,
-                    Err(e) if e == nix::errno::Errno::EAGAIN => {
-                        // FIXME: may cause infinite loop
-                        need_retry = true;
-                    }
-                    Err(e) => {
-                        return Err(Box::new(e));
-                    }
-                }
-            }
             output = output_cmd.args(args).output()?;
         }
 
-        if let Some(f) = file_lock {
-            drop(f)
-        }
         Ok(output)
     }
 }

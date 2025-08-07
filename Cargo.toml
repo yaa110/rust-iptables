@@ -10,12 +10,11 @@ license = "MIT"
 name = "iptables"
 readme = "README.md"
 repository = "https://github.com/yaa110/rust-iptables"
-version = "0.5.3"
+version = "0.6.0"
 
 [lib]
 name = "iptables"
 
 [dependencies]
 lazy_static = "1"
-nix = {version = "0.29", features = ["fs"]}
 regex = "1"
